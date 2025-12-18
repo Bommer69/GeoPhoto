@@ -1,0 +1,35 @@
+# PROJECT CONTEXT
+Application: Personal Photo Map Manager (GeoPhoto).
+Goal: Display personal photos on a map based on their EXIF GPS data.
+Language: Vietnamese (for UI/Comments), English (for Code/Variables).
+
+# TECH STACK
+## Backend
+- Framework: Spring Boot 3.x (Java 17+).
+- Build Tool: Maven.
+- Database: PostgreSQL (Production) or H2 (Dev).
+- Key Library: `com.drewnoakes:metadata-extractor` (MUST USE for GPS extraction).
+- Architecture: Controller -> Service -> Repository -> Database.
+
+## Frontend
+- Framework: React (Vite).
+- Styling: Tailwind CSS.
+- Map Library: `react-leaflet` (OpenStreetMap) with `react-leaflet-cluster`.
+- HTTP Client: Axios.
+
+# CODING RULES
+1. **Backend:**
+   - Always handle `ImageProcessingException` when reading files.
+   - Expose a static resource handler for the `/uploads` directory so images are accessible via URL.
+   - Use standard RESTful API naming conventions.
+   - Use DTOs (Data Transfer Objects) for API responses, do not expose Entities directly.
+
+2. **Frontend:**
+   - Use Functional Components and Hooks.
+   - Markers on the map MUST be custom icons (thumbnails of the photos).
+   - Use `MarkerClusterGroup` to group photos when zoomed out.
+   - Ensure the Map takes 100% height and width of the container.
+
+3. **General:**
+   - Keep code clean, modular, and well-commented.
+   - If a file becomes too large, suggest refactoring/splitting it.

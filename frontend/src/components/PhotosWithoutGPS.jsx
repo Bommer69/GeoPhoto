@@ -1,0 +1,369 @@
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
+import { Marker, Popup, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import { fetchAllPhotos, updatePhotoLocation } from '../services/photoService'
+import LocationSearch from './LocationSearch'
+
+/**
+ * PhotosWithoutGPS Component
+ * Hiển thị danh sách ảnh không có GPS và cho phép user thêm location
+ */
+const PhotosWithoutGPS = forwardRef(({ onLocationAdded }, ref) => {
+  const [photosWithoutGps, setPhotosWithoutGps] = useState([])
+  const [selectedPhoto, setSelectedPhoto] = useState(null)
+  const [tempMarkerPosition, setTempMarkerPosition] = useState(null)
+  const [showSearch, setShowSearch] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState(null)
+  const [showPanel, setShowPanel] = useState(false)
+  
+  const map = useMap()
+  const markerRef = useRef(null)
+
+  /**
+   * Load photos without GPS
+   */
+  useEffect(() => {
+    loadPhotosWithoutGps()
+  }, [])
+
+  const loadPhotosWithoutGps = async () => {
+    try {
+      const allPhotos = await fetchAllPhotos()
+      const withoutGps = allPhotos.filter(p => !p.latitude || !p.longitude)
+      setPhotosWithoutGps(withoutGps)
+    } catch (error) {
+      console.error('Error loading photos without GPS:', error)
+    }
+  }
+
+  /**
+   * Handle photo selection
+   */
+  const handleSelectPhoto = (photo) => {
+    setSelectedPhoto(photo)
+    setTempMarkerPosition(null)
+    setShowSearch(true)
+    setMessage(null)
+  }
+
+  /**
+   * Handle location selected from search
+   */
+  const handleLocationSelected = (lat, lon, displayName) => {
+    setTempMarkerPosition([lat, lon])
+    setMessage({ type: 'success', text: `Đã chọn: ${displayName}` })
+  }
+
+  /**
+   * Handle map click to place marker
+   */
+  useEffect(() => {
+    if (!selectedPhoto || saving) return
+
+    const handleMapClick = (e) => {
+      // Only handle direct map clicks, not clicks on markers or UI elements
+      if (e.originalEvent && e.originalEvent.target.classList.contains('leaflet-container')) {
+        setTempMarkerPosition([e.latlng.lat, e.latlng.lng])
+        setMessage({ type: 'info', text: 'Đã đặt marker. Kéo marker để điều chỉnh vị trí.' })
+      }
+    }
+
+    map.on('click', handleMapClick)
+    return () => {
+      map.off('click', handleMapClick)
+    }
+  }, [selectedPhoto, saving, map])
+
+  /**
+   * Handle marker drag
+   */
+  const handleMarkerDrag = () => {
+    if (markerRef.current) {
+      const position = markerRef.current.getLatLng()
+      setTempMarkerPosition([position.lat, position.lng])
+    }
+  }
+
+  /**
+   * Confirm and save location
+   */
+  const handleConfirmLocation = async (event) => {
+    // Prevent event propagation to map
+    if (event) {
+      event.stopPropagation()
+      event.preventDefault()
+    }
+
+    if (!selectedPhoto || !tempMarkerPosition) {
+      setMessage({ type: 'error', text: 'Vui lòng chọn vị trí trên bản đồ' })
+      return
+    }
+
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      await updatePhotoLocation(
+        selectedPhoto.id,
+        tempMarkerPosition[0],
+        tempMarkerPosition[1]
+      )
+
+      setMessage({ type: 'success', text: '✅ Đã lưu vị trí thành công!' })
+      
+      // Reload photos
+      await loadPhotosWithoutGps()
+      
+      // Notify parent
+      if (onLocationAdded) {
+        onLocationAdded()
+      }
+
+      // Reset after 2 seconds
+      setTimeout(() => {
+        setSelectedPhoto(null)
+        setTempMarkerPosition(null)
+        setShowSearch(false)
+        setMessage(null)
+      }, 2000)
+
+    } catch (error) {
+      console.error('Error saving location:', error)
+      setMessage({ type: 'error', text: '❌ Lỗi khi lưu vị trí' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /**
+   * Cancel selection
+   */
+  const handleCancel = (event) => {
+    // Prevent event propagation to map
+    if (event) {
+      event.stopPropagation()
+      event.preventDefault()
+    }
+
+    setSelectedPhoto(null)
+    setTempMarkerPosition(null)
+    setShowSearch(false)
+    setMessage(null)
+  }
+
+  // Expose openPanel method to parent
+  useImperativeHandle(ref, () => ({
+    openPanel: () => {
+      setShowPanel(true)
+    }
+  }))
+
+  // Don't show if no photos without GPS
+  if (photosWithoutGps.length === 0) return null
+
+  return (
+    <>
+      {/* Toggle Button */}
+      {!showPanel && (
+        <button
+          onClick={() => setShowPanel(true)}
+          className="fixed top-20 left-4 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg shadow-lg z-[1050] flex items-center gap-2 transition"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          {photosWithoutGps.length} ảnh chưa có GPS
+        </button>
+      )}
+
+      {/* Main Panel */}
+      {showPanel && (
+        <div 
+          className="fixed top-20 left-4 w-80 max-h-[calc(100vh-120px)] bg-white rounded-2xl shadow-2xl z-[1200] flex flex-col side-panel-mobile border border-gray-100"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="bg-orange-500 text-white p-4 rounded-t-lg flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-lg">⚠️ Ảnh Chưa Có GPS</h3>
+              <p className="text-orange-100 text-sm">{photosWithoutGps.length} ảnh cần thêm vị trí</p>
+            </div>
+            <button
+              onClick={() => setShowPanel(false)}
+              className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Photos List */}
+            {!selectedPhoto && (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600 mb-3">
+                  Click vào ảnh để thêm vị trí GPS:
+                </p>
+                {photosWithoutGps.map((photo) => (
+                  <button
+                    key={photo.id}
+                    onClick={() => handleSelectPhoto(photo)}
+                    className="w-full bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg p-3 transition text-left group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={`http://localhost:8080${photo.url}`}
+                        alt={photo.fileName}
+                        className="w-12 h-12 object-cover rounded"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate group-hover:text-blue-600">
+                          {photo.fileName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Upload: {new Date(photo.uploadedAt).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Selected Photo Workflow */}
+            {selectedPhoto && (
+              <div className="space-y-4">
+                {/* Selected Photo Info */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm font-medium text-blue-800 mb-2">Đang xử lý:</p>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={`http://localhost:8080${selectedPhoto.url}`}
+                      alt={selectedPhoto.fileName}
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {selectedPhoto.fileName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Location Search */}
+                {showSearch && (
+                  <LocationSearch
+                    map={map}
+                    onLocationSelected={handleLocationSelected}
+                    onClose={() => setShowSearch(false)}
+                  />
+                )}
+
+                {/* Instructions */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-700 space-y-1">
+                    <strong>Cách thêm vị trí:</strong>
+                    <br />1. Tìm kiếm địa chỉ ở trên, HOẶC
+                    <br />2. Click trực tiếp trên bản đồ
+                    <br />3. Kéo marker để điều chỉnh
+                    <br />4. Click &quot;Xác Nhận Vị Trí&quot;
+                  </p>
+                </div>
+
+                {/* Message */}
+                {message && (
+                  <div className={`p-3 rounded-lg text-sm ${
+                    message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
+                    message.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+                    'bg-blue-50 text-blue-800 border border-blue-200'
+                  }`}>
+                    {message.text}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div 
+                  className="flex gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={handleCancel}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                    disabled={saving}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={handleConfirmLocation}
+                    disabled={!tempMarkerPosition || saving}
+                    className={`flex-1 px-4 py-2 rounded-lg transition font-medium ${
+                      !tempMarkerPosition || saving
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                    }`}
+                  >
+                    {saving ? 'Đang lưu...' : '✓ Xác Nhận Vị Trí'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Temporary Draggable Marker */}
+      {tempMarkerPosition && (
+        <Marker
+          position={tempMarkerPosition}
+          draggable={true}
+          eventHandlers={{
+            dragend: handleMarkerDrag,
+          }}
+          ref={markerRef}
+          icon={L.divIcon({
+            className: 'temp-marker',
+            html: `
+              <div style="
+                width: 40px;
+                height: 40px;
+                background: #ef4444;
+                border: 3px solid white;
+                border-radius: 50% 50% 50% 0;
+                transform: rotate(-45deg);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+              "></div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 40],
+          })}
+        >
+          <Popup>
+            <div className="text-center">
+              <p className="font-semibold text-sm mb-1">Vị trí tạm thời</p>
+              <p className="text-xs text-gray-600">
+                Kéo marker để điều chỉnh
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {tempMarkerPosition[0].toFixed(6)}, {tempMarkerPosition[1].toFixed(6)}
+              </p>
+            </div>
+          </Popup>
+        </Marker>
+      )}
+    </>
+  )
+})
+
+PhotosWithoutGPS.displayName = 'PhotosWithoutGPS'
+
+export default PhotosWithoutGPS
+
