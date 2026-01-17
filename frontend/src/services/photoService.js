@@ -53,10 +53,7 @@ apiClient.interceptors.response.use(
         "Không thể kết nối đến server. Vui lòng kiểm tra backend có đang chạy không.";
     }
 
-    if (
-      error.response &&
-      (error.response.status === 401 || error.response.status === 403)
-    ) {
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       // Unauthorized or Forbidden - redirect to login
       localStorage.removeItem("token");
       localStorage.removeItem("user");
