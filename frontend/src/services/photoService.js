@@ -6,7 +6,14 @@ import { getToken } from './authService'
  * API client for photo-related operations
  */
 
-const API_BASE_URL = 'http://localhost:8080/api'
+// URL gốc của API backend - tự động dùng hostname hiện tại
+// Cho phép truy cập từ localhost hoặc IP trong mạng LAN
+const getBackendUrl = () => {
+  const hostname = window.location.hostname
+  return `http://${hostname}:8080/api`
+}
+
+const API_BASE_URL = getBackendUrl()
 
 // Create axios instance with default config
 const apiClient = axios.create({

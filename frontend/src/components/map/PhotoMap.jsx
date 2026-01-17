@@ -1,14 +1,35 @@
 import { useState, useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import L from 'leaflet'
-import { useAuth } from '../context/AuthContext'
-import { fetchPhotosWithGps } from '../services/photoService'
-import PhotoUpload from './PhotoUpload'
-import PhotosWithoutGPS from './PhotosWithoutGPS'
-import PhotoManagement from './PhotoManagement'
-import PhotoDetails from './PhotoDetails'
-import PhotoLocationEditor from './PhotoLocationEditor'
+import { useAuth } from '../../context/AuthContext'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { fetchPhotosWithGps } from '../../services/photoService'
+// Photo components
+import PhotoUpload from '../photo/PhotoUpload'
+import PhotosWithoutGPS from '../photo/PhotosWithoutGPS'
+import PhotoManagement from '../photo/PhotoManagement'
+import PhotoDetails from '../photo/PhotoDetails'
+import PhotoLocationEditor from '../photo/PhotoLocationEditor'
+
+/**
+ * Component to handle map focus when navigating from library
+ */
+const MapFocusHandler = ({ targetLocation, onFocused }) => {
+  const map = useMap()
+  
+  useEffect(() => {
+    if (targetLocation) {
+      map.flyTo([targetLocation.lat, targetLocation.lng], 15, {
+        duration: 1.5
+      })
+      // Clear the target after focusing
+      setTimeout(() => onFocused(), 2000)
+    }
+  }, [targetLocation, map, onFocused])
+  
+  return null
+}
 
 /**
  * PhotoMap Component
@@ -23,9 +44,12 @@ const PhotoMap = () => {
   const [selectedPhoto, setSelectedPhoto] = useState(null) // For PhotoDetails modal
   const [editingPhoto, setEditingPhoto] = useState(null) // For PhotoLocationEditor modal
   const [infoPanelCollapsed, setInfoPanelCollapsed] = useState(false) // Collapse/expand info panel
+  const [targetLocation, setTargetLocation] = useState(null) // For focusing map from library
   const photosWithoutGPSRef = useRef(null)
   
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Default center (Vietnam - Đà Nẵng)
   const defaultCenter = [16.0544, 108.2022]
@@ -37,6 +61,34 @@ const PhotoMap = () => {
       loadPhotos()
     }
   }, [user])
+
+  // Handle URL query params from library navigation
+  useEffect(() => {
+    const lat = searchParams.get('lat')
+    const lng = searchParams.get('lng')
+    const photoId = searchParams.get('photoId')
+    
+    if (lat && lng) {
+      setTargetLocation({
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        photoId
+      })
+      // Clear the URL params
+      setSearchParams({})
+    }
+  }, [searchParams, setSearchParams])
+
+  // Auto-select photo when navigating from library
+  useEffect(() => {
+    if (targetLocation?.photoId && photos.length > 0) {
+      const photo = photos.find(p => p.id === targetLocation.photoId)
+      if (photo) {
+        // Small delay to let the map fly to location first
+        setTimeout(() => setSelectedPhoto(photo), 1500)
+      }
+    }
+  }, [targetLocation, photos])
 
   /**
    * Fetch photos from backend API
@@ -52,7 +104,7 @@ const PhotoMap = () => {
       
       // Also fetch total count (including photos without GPS)
       try {
-        const allPhotosResponse = await fetch('http://localhost:8080/api/photos', {
+        const allPhotosResponse = await fetch('http://${window.location.hostname}:8080/api/photos', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -95,7 +147,7 @@ const PhotoMap = () => {
    * Marker hình tròn với viền trắng, bóng đổ đẹp mắt và hiệu ứng hover
    */
   const createCustomIcon = (photo) => {
-    const imageUrl = `http://localhost:8080${photo.thumbnailUrl || photo.url}`
+    const imageUrl = `http://${window.location.hostname}:8080${photo.thumbnailUrl || photo.url}`
     
     return L.divIcon({
       className: 'custom-photo-marker',
@@ -210,6 +262,12 @@ const PhotoMap = () => {
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%' }}
       >
+        {/* Map Focus Handler - for navigating from library */}
+        <MapFocusHandler 
+          targetLocation={targetLocation} 
+          onFocused={() => setTargetLocation(null)} 
+        />
+
         {/* OpenStreetMap Tile Layer */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -247,7 +305,7 @@ const PhotoMap = () => {
                    {/* Thumbnail Preview */}
                    <div className="photo-popup-image mb-3">
                      <img
-                       src={`http://localhost:8080${photo.url}`}
+                       src={`http://${window.location.hostname}:8080${photo.url}`}
                        alt={photo.fileName}
                        className="w-full h-32 object-cover rounded-lg"
                        onError={(e) => {
@@ -377,6 +435,28 @@ const PhotoMap = () => {
 
             {/* Action Buttons - Compact */}
             <div className="space-y-2">
+              {/* Library Button */}
+              <button
+                onClick={() => navigate('/library')}
+                className="w-full px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-md flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                </svg>
+                Thư viện ảnh
+              </button>
+
+              {/* Albums Button */}
+              <button
+                onClick={() => navigate('/albums')}
+                className="w-full px-3 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-medium rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all duration-200 shadow-md flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Bộ sưu tập
+              </button>
+
               <button
                 onClick={loadPhotos}
                 className="w-full px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md flex items-center justify-center gap-2"

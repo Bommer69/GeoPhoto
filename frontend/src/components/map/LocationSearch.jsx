@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { searchAddress } from '../services/geocodingService'
+import { searchAddress } from '../../services/geocodingService'
 
 /**
  * LocationSearch Component

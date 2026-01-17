@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { uploadPhoto } from '../services/photoService'
+import { uploadPhoto } from '../../services/photoService'
 
 /**
  * PhotoUpload Component

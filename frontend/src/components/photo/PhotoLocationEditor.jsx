@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import PropTypes from 'prop-types'
-import { updatePhotoLocation } from '../services/photoService'
+import { updatePhotoLocation } from '../../services/photoService'
 
 /**
  * MapClickHandler Component
@@ -192,7 +192,7 @@ const PhotoLocationEditor = ({ photo, onClose, onLocationUpdated }) => {
             {/* Left Column - Photo Preview */}
             <div className="md:col-span-1">
               <img
-                src={`http://localhost:8080${photo.url}`}
+                src={`http://${window.location.hostname}:8080${photo.url}`}
                 alt={photo.fileName}
                 className="w-full rounded-lg shadow-lg object-cover"
                 style={{ maxHeight: '300px' }}

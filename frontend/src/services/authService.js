@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/auth';
+// URL gốc của API backend - tự động dùng hostname hiện tại
+// Cho phép truy cập từ localhost hoặc IP trong mạng LAN
+const getAuthUrl = () => {
+  const hostname = window.location.hostname
+  return `http://${hostname}:8080/api/auth`
+}
+
+const API_URL = getAuthUrl();
 
 /**
  * Auth Service

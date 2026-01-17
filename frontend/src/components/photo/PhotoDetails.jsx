@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { deletePhoto } from '../services/photoService'
+import { deletePhoto } from '../../services/photoService'
 
 /**
  * PhotoDetails Component
@@ -114,7 +114,7 @@ const PhotoDetails = ({ photo, onClose, onPhotoUpdated, onPhotoDeleted, onEditLo
             {/* Left Column - Image */}
             <div>
               <img
-                src={`http://localhost:8080${photo.url}`}
+                src={`http://${window.location.hostname}:8080${photo.url}`}
                 alt={photo.fileName}
                 className="w-full rounded-lg shadow-lg object-cover"
                 style={{ maxHeight: '500px' }}
@@ -126,7 +126,7 @@ const PhotoDetails = ({ photo, onClose, onPhotoUpdated, onPhotoDeleted, onEditLo
               {/* Image Actions */}
               <div className="mt-4 flex gap-2">
                 <a
-                  href={`http://localhost:8080${photo.url}`}
+                  href={`http://${window.location.hostname}:8080${photo.url}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-center text-sm font-medium"
@@ -134,7 +134,7 @@ const PhotoDetails = ({ photo, onClose, onPhotoUpdated, onPhotoDeleted, onEditLo
                   🔍 Xem Full Size
                 </a>
                 <a
-                  href={`http://localhost:8080${photo.url}`}
+                  href={`http://${window.location.hostname}:8080${photo.url}`}
                   download={photo.fileName}
                   className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-center text-sm font-medium"
                 >

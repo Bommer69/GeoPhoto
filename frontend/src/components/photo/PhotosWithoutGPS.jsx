@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
 import { Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { fetchAllPhotos, updatePhotoLocation } from '../services/photoService'
-import LocationSearch from './LocationSearch'
+import { fetchAllPhotos, updatePhotoLocation } from '../../services/photoService'
+import LocationSearch from '../map/LocationSearch'
 
 /**
  * PhotosWithoutGPS Component
@@ -19,6 +19,41 @@ const PhotosWithoutGPS = forwardRef(({ onLocationAdded }, ref) => {
   
   const map = useMap()
   const markerRef = useRef(null)
+  const panelRef = useRef(null)
+
+  /**
+   * Disable map interactions when mouse is over panel
+   * Using Leaflet's DomEvent API for proper event isolation
+   */
+  useEffect(() => {
+    const panelElement = panelRef.current
+    if (panelElement) {
+      // Disable all Leaflet event propagation
+      L.DomEvent.disableClickPropagation(panelElement)
+      L.DomEvent.disableScrollPropagation(panelElement)
+      
+      // Also stop mouse move from affecting map drag
+      const stopPropagation = (e) => {
+        L.DomEvent.stopPropagation(e)
+      }
+      
+      panelElement.addEventListener('mousemove', stopPropagation)
+      panelElement.addEventListener('mousedown', stopPropagation)
+      panelElement.addEventListener('mouseup', stopPropagation)
+      panelElement.addEventListener('touchstart', stopPropagation)
+      panelElement.addEventListener('touchmove', stopPropagation)
+      panelElement.addEventListener('touchend', stopPropagation)
+      
+      return () => {
+        panelElement.removeEventListener('mousemove', stopPropagation)
+        panelElement.removeEventListener('mousedown', stopPropagation)
+        panelElement.removeEventListener('mouseup', stopPropagation)
+        panelElement.removeEventListener('touchstart', stopPropagation)
+        panelElement.removeEventListener('touchmove', stopPropagation)
+        panelElement.removeEventListener('touchend', stopPropagation)
+      }
+    }
+  }, [showPanel])
 
   /**
    * Load photos without GPS
@@ -180,10 +215,8 @@ const PhotosWithoutGPS = forwardRef(({ onLocationAdded }, ref) => {
       {/* Main Panel */}
       {showPanel && (
         <div 
+          ref={panelRef}
           className="fixed top-20 left-4 w-80 max-h-[calc(100vh-120px)] bg-white rounded-2xl shadow-2xl z-[1200] flex flex-col side-panel-mobile border border-gray-100"
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onMouseUp={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="bg-orange-500 text-white p-4 rounded-t-lg flex justify-between items-center">
@@ -217,7 +250,7 @@ const PhotosWithoutGPS = forwardRef(({ onLocationAdded }, ref) => {
                   >
                     <div className="flex items-center gap-3">
                       <img
-                        src={`http://localhost:8080${photo.url}`}
+                        src={`http://${window.location.hostname}:8080${photo.url}`}
                         alt={photo.fileName}
                         className="w-12 h-12 object-cover rounded"
                       />
@@ -246,7 +279,7 @@ const PhotosWithoutGPS = forwardRef(({ onLocationAdded }, ref) => {
                   <p className="text-sm font-medium text-blue-800 mb-2">Đang xử lý:</p>
                   <div className="flex items-center gap-3">
                     <img
-                      src={`http://localhost:8080${selectedPhoto.url}`}
+                      src={`http://${window.location.hostname}:8080${selectedPhoto.url}`}
                       alt={selectedPhoto.fileName}
                       className="w-16 h-16 object-cover rounded"
                     />
@@ -290,11 +323,7 @@ const PhotosWithoutGPS = forwardRef(({ onLocationAdded }, ref) => {
                 )}
 
                 {/* Action Buttons */}
-                <div 
-                  className="flex gap-2"
-                  onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
+                <div className="flex gap-2">
                   <button
                     onClick={handleCancel}
                     className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"

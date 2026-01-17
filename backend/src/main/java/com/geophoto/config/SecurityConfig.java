@@ -71,8 +71,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+                        // Public share endpoints - cho phép xem link chia sẻ không cần đăng nhập
+                        .requestMatchers("/api/public/**").permitAll()
                         // Protected endpoints
                         .requestMatchers("/api/photos/**").authenticated()
+                        .requestMatchers("/api/shares/**").authenticated()
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 );
@@ -91,7 +94,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:*", "http://127.0.0.1:*"));
+        // Cho phép truy cập từ localhost và IP trong mạng LAN
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+            "http://localhost:*", 
+            "http://127.0.0.1:*",
+            "http://192.168.*.*:*",  // Mạng LAN
+            "http://10.*.*.*:*"      // Mạng nội bộ
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setExposedHeaders(Arrays.asList("Authorization"));

@@ -26,6 +26,11 @@ public interface PhotoRepository extends MongoRepository<Photo, String> {
     List<Photo> findByUserId(String userId);
     
     /**
+     * Find photo by ID and user ID (để kiểm tra quyền sở hữu)
+     */
+    java.util.Optional<Photo> findByIdAndUserId(String id, String userId);
+    
+    /**
      * Find all photos by user ID with GPS coordinates
      */
     List<Photo> findByUserIdAndLatitudeIsNotNullAndLongitudeIsNotNull(String userId);
